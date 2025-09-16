@@ -1,0 +1,82 @@
+// Especifica la sintaxis de Protocol Buffers que estamos usando.
+syntax = "proto3";
+
+// Define el paquete para evitar conflictos de nombres.
+package canciones;
+
+// Especifica la ruta de importación para el código Go generado.
+// Debe coincidir con el nombre de la carpeta que contendrá los archivos generados.
+option go_package = "./servicios_canciones";
+
+//---------------------------------------------------------
+// DEFINICIÓN DE LOS DTO (Data Transfer Objects)
+//---------------------------------------------------------
+
+// Representa un género musical.
+message GeneroDTO {
+    int32 id = 1;
+    string nombre = 2;
+}
+
+// Representa la información completa de una canción.
+message CancionDTO {
+    int32 id = 1;
+    string titulo = 2;
+    string artista = 3;
+    int32 anio_lanzamiento = 4;
+    string duracion = 5;
+    GeneroDTO genero = 6;
+}
+
+// Mensaje para representar una canción en una lista (más ligero).
+message CancionInfoListaDTO {
+    int32 id = 1;
+    string titulo = 2;
+    string artista = 3;
+}
+
+
+//---------------------------------------------------------
+// DEFINICIÓN DE LOS MENSAJES DE PETICIÓN Y RESPUESTA
+//---------------------------------------------------------
+
+// Mensaje para peticiones que no necesitan parámetros.
+message SolicitudVacia {}
+
+// Respuesta que contiene una lista de géneros.
+message RespuestaListaGeneros {
+    repeated GeneroDTO generos = 1;
+}
+
+// Petición para obtener canciones de un género específico.
+message SolicitudPorGenero {
+    int32 id_genero = 1;
+}
+
+// Respuesta que contiene una lista de canciones.
+message RespuestaListaCanciones {
+    repeated CancionInfoListaDTO canciones = 1;
+}
+
+// Petición para obtener los detalles de una canción específica.
+message SolicitudPorCancion {
+    int32 id_cancion = 1;
+}
+
+
+//---------------------------------------------------------
+// DEFINICIÓN DEL SERVICIO
+//---------------------------------------------------------
+
+// El servicio gRPC que define las operaciones relacionadas con las canciones.
+service ServicioCanciones {
+    
+    // Obtiene la lista de todos los géneros musicales disponibles.
+    rpc ListarGeneros(SolicitudVacia) returns (RespuestaListaGeneros);
+
+    // Obtiene la lista de canciones para un género específico.
+    rpc ListarCancionesPorGenero(SolicitudPorGenero) returns (RespuestaListaCanciones);
+
+    // Obtiene los detalles completos de una canción específica.
+    rpc ObtenerDetallesCancion(SolicitudPorCancion) returns (CancionDTO);
+}
