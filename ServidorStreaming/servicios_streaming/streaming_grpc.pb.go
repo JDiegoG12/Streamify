@@ -18,30 +18,29 @@ import (
 // Requires gRPC-Go v1.32.0 or later.
 const _ = grpc.SupportPackageIsVersion7
 
-// ServicioStreamingClient is the client API for ServicioStreaming service.
+// AudioServiceClient is the client API for AudioService service.
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
-type ServicioStreamingClient interface {
-	// RPC que recibe el ID de una canción y la devuelve como un stream
-	// de fragmentos de audio. La palabra 'stream' indica que el servidor
-	// enviará múltiples mensajes 'ChunkAudio' a través de una única conexión.
-	StreamCancion(ctx context.Context, in *SolicitudStreamCancion, opts ...grpc.CallOption) (ServicioStreaming_StreamCancionClient, error)
+type AudioServiceClient interface {
+	// Método RPC para el streaming de la canción.
+	// Recibe una petición y devuelve un 'stream' (flujo) de fragmentos.
+	StreamAudio(ctx context.Context, in *PeticionDTO, opts ...grpc.CallOption) (AudioService_StreamAudioClient, error)
 }
 
-type servicioStreamingClient struct {
+type audioServiceClient struct {
 	cc grpc.ClientConnInterface
 }
 
-func NewServicioStreamingClient(cc grpc.ClientConnInterface) ServicioStreamingClient {
-	return &servicioStreamingClient{cc}
+func NewAudioServiceClient(cc grpc.ClientConnInterface) AudioServiceClient {
+	return &audioServiceClient{cc}
 }
 
-func (c *servicioStreamingClient) StreamCancion(ctx context.Context, in *SolicitudStreamCancion, opts ...grpc.CallOption) (ServicioStreaming_StreamCancionClient, error) {
-	stream, err := c.cc.NewStream(ctx, &ServicioStreaming_ServiceDesc.Streams[0], "/streaming.ServicioStreaming/StreamCancion", opts...)
+func (c *audioServiceClient) StreamAudio(ctx context.Context, in *PeticionDTO, opts ...grpc.CallOption) (AudioService_StreamAudioClient, error) {
+	stream, err := c.cc.NewStream(ctx, &AudioService_ServiceDesc.Streams[0], "/servicios_streaming.AudioService/StreamAudio", opts...)
 	if err != nil {
 		return nil, err
 	}
-	x := &servicioStreamingStreamCancionClient{stream}
+	x := &audioServiceStreamAudioClient{stream}
 	if err := x.ClientStream.SendMsg(in); err != nil {
 		return nil, err
 	}
@@ -51,86 +50,85 @@ func (c *servicioStreamingClient) StreamCancion(ctx context.Context, in *Solicit
 	return x, nil
 }
 
-type ServicioStreaming_StreamCancionClient interface {
-	Recv() (*ChunkAudio, error)
+type AudioService_StreamAudioClient interface {
+	Recv() (*FragmentoCancion, error)
 	grpc.ClientStream
 }
 
-type servicioStreamingStreamCancionClient struct {
+type audioServiceStreamAudioClient struct {
 	grpc.ClientStream
 }
 
-func (x *servicioStreamingStreamCancionClient) Recv() (*ChunkAudio, error) {
-	m := new(ChunkAudio)
+func (x *audioServiceStreamAudioClient) Recv() (*FragmentoCancion, error) {
+	m := new(FragmentoCancion)
 	if err := x.ClientStream.RecvMsg(m); err != nil {
 		return nil, err
 	}
 	return m, nil
 }
 
-// ServicioStreamingServer is the server API for ServicioStreaming service.
-// All implementations must embed UnimplementedServicioStreamingServer
+// AudioServiceServer is the server API for AudioService service.
+// All implementations must embed UnimplementedAudioServiceServer
 // for forward compatibility
-type ServicioStreamingServer interface {
-	// RPC que recibe el ID de una canción y la devuelve como un stream
-	// de fragmentos de audio. La palabra 'stream' indica que el servidor
-	// enviará múltiples mensajes 'ChunkAudio' a través de una única conexión.
-	StreamCancion(*SolicitudStreamCancion, ServicioStreaming_StreamCancionServer) error
-	mustEmbedUnimplementedServicioStreamingServer()
+type AudioServiceServer interface {
+	// Método RPC para el streaming de la canción.
+	// Recibe una petición y devuelve un 'stream' (flujo) de fragmentos.
+	StreamAudio(*PeticionDTO, AudioService_StreamAudioServer) error
+	mustEmbedUnimplementedAudioServiceServer()
 }
 
-// UnimplementedServicioStreamingServer must be embedded to have forward compatible implementations.
-type UnimplementedServicioStreamingServer struct {
+// UnimplementedAudioServiceServer must be embedded to have forward compatible implementations.
+type UnimplementedAudioServiceServer struct {
 }
 
-func (UnimplementedServicioStreamingServer) StreamCancion(*SolicitudStreamCancion, ServicioStreaming_StreamCancionServer) error {
-	return status.Errorf(codes.Unimplemented, "method StreamCancion not implemented")
+func (UnimplementedAudioServiceServer) StreamAudio(*PeticionDTO, AudioService_StreamAudioServer) error {
+	return status.Errorf(codes.Unimplemented, "method StreamAudio not implemented")
 }
-func (UnimplementedServicioStreamingServer) mustEmbedUnimplementedServicioStreamingServer() {}
+func (UnimplementedAudioServiceServer) mustEmbedUnimplementedAudioServiceServer() {}
 
-// UnsafeServicioStreamingServer may be embedded to opt out of forward compatibility for this service.
-// Use of this interface is not recommended, as added methods to ServicioStreamingServer will
+// UnsafeAudioServiceServer may be embedded to opt out of forward compatibility for this service.
+// Use of this interface is not recommended, as added methods to AudioServiceServer will
 // result in compilation errors.
-type UnsafeServicioStreamingServer interface {
-	mustEmbedUnimplementedServicioStreamingServer()
+type UnsafeAudioServiceServer interface {
+	mustEmbedUnimplementedAudioServiceServer()
 }
 
-func RegisterServicioStreamingServer(s grpc.ServiceRegistrar, srv ServicioStreamingServer) {
-	s.RegisterService(&ServicioStreaming_ServiceDesc, srv)
+func RegisterAudioServiceServer(s grpc.ServiceRegistrar, srv AudioServiceServer) {
+	s.RegisterService(&AudioService_ServiceDesc, srv)
 }
 
-func _ServicioStreaming_StreamCancion_Handler(srv interface{}, stream grpc.ServerStream) error {
-	m := new(SolicitudStreamCancion)
+func _AudioService_StreamAudio_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(PeticionDTO)
 	if err := stream.RecvMsg(m); err != nil {
 		return err
 	}
-	return srv.(ServicioStreamingServer).StreamCancion(m, &servicioStreamingStreamCancionServer{stream})
+	return srv.(AudioServiceServer).StreamAudio(m, &audioServiceStreamAudioServer{stream})
 }
 
-type ServicioStreaming_StreamCancionServer interface {
-	Send(*ChunkAudio) error
+type AudioService_StreamAudioServer interface {
+	Send(*FragmentoCancion) error
 	grpc.ServerStream
 }
 
-type servicioStreamingStreamCancionServer struct {
+type audioServiceStreamAudioServer struct {
 	grpc.ServerStream
 }
 
-func (x *servicioStreamingStreamCancionServer) Send(m *ChunkAudio) error {
+func (x *audioServiceStreamAudioServer) Send(m *FragmentoCancion) error {
 	return x.ServerStream.SendMsg(m)
 }
 
-// ServicioStreaming_ServiceDesc is the grpc.ServiceDesc for ServicioStreaming service.
+// AudioService_ServiceDesc is the grpc.ServiceDesc for AudioService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
-var ServicioStreaming_ServiceDesc = grpc.ServiceDesc{
-	ServiceName: "streaming.ServicioStreaming",
-	HandlerType: (*ServicioStreamingServer)(nil),
+var AudioService_ServiceDesc = grpc.ServiceDesc{
+	ServiceName: "servicios_streaming.AudioService",
+	HandlerType: (*AudioServiceServer)(nil),
 	Methods:     []grpc.MethodDesc{},
 	Streams: []grpc.StreamDesc{
 		{
-			StreamName:    "StreamCancion",
-			Handler:       _ServicioStreaming_StreamCancion_Handler,
+			StreamName:    "StreamAudio",
+			Handler:       _AudioService_StreamAudio_Handler,
 			ServerStreams: true,
 		},
 	},

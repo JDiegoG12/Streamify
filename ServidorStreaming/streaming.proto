@@ -1,39 +1,22 @@
-// Especifica la sintaxis de Protocol Buffers que estamos usando.
 syntax = "proto3";
 
-// Define el paquete para evitar conflictos de nombres.
-package streaming;
+package servicios_streaming;
 
-// Especifica la ruta de importación para el código Go generado.
-// Debe coincidir con el nombre de la carpeta que contendrá los archivos generados.
+// CAMBIA la siguiente línea:
+// llamada 'servicios_streaming' dentro del directorio de salida.
 option go_package = "./servicios_streaming";
 
-
-//---------------------------------------------------------
-// DEFINICIÓN DE LOS MENSAJES
-//---------------------------------------------------------
-
-// Petición para iniciar el streaming de una canción.
-// Se usa el ID para identificar de forma única la canción.
-message SolicitudStreamCancion {
-  int32 id_cancion = 1;
+// El servicio de audio.
+service AudioService {
+    rpc StreamAudio(PeticionDTO) returns (stream FragmentoCancion);
 }
 
-// Mensaje que representa un fragmento (chunk) de los datos de audio.
-message ChunkAudio {
-  bytes data = 1;
+// Mensaje de Petición
+message PeticionDTO {
+    string titulo = 1;
 }
 
-
-//---------------------------------------------------------
-// DEFINICIÓN DEL SERVICIO
-//---------------------------------------------------------
-
-// El servicio gRPC que define la operación de streaming de audio.
-service ServicioStreaming {
-  
-  // RPC que recibe el ID de una canción y la devuelve como un stream
-  // de fragmentos de audio. La palabra 'stream' indica que el servidor
-  // enviará múltiples mensajes 'ChunkAudio' a través de una única conexión.
-  rpc StreamCancion(SolicitudStreamCancion) returns (stream ChunkAudio);
+// Mensaje de Respuesta
+message FragmentoCancion {
+    bytes data = 1;
 }
