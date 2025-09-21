@@ -1,3 +1,4 @@
+// Archivo: Cliente/Servicios/streaming_servicios.go
 package Servicios
 
 import (
@@ -6,64 +7,107 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"sync"
 	"time"
 
+	"github.com/faiface/beep"
 	"github.com/faiface/beep/mp3"
 	"github.com/faiface/beep/speaker"
 )
 
-// El resto de este archivo no necesita cambios.
-func ReproducirCancion(cliente ss.AudioServiceClient, tituloCancion string) {
+// Usamos sync.Once para asegurar que speaker.Init() se llame una sola vez.
+// Llamarlo múltiples veces puede causar problemas con la librería de audio.
+var speakerInicializado sync.Once
+
+func ReproducirCancion(cliente ss.AudioServiceClient, tituloCancion string, done chan bool) {
 	stream, err := cliente.StreamAudio(context.Background(), &ss.PeticionDTO{Titulo: tituloCancion})
 	if err != nil {
-		log.Printf("Error al invocar el streaming: %v. Asegúrate de que el archivo '%s.mp3' existe en el ServidorStreaming.", err, tituloCancion)
+		log.Printf("Error al invocar el streaming: %v", err)
+		done <- true // Notificamos que hemos terminado (con error).
 		return
 	}
 
+	// io.Pipe crea un par de Reader/Writer conectados en memoria.
+	// Lo que se escribe en el Writer, puede ser leído desde el Reader.
+	// Es perfecto para conectar dos goroutines.
 	reader, writer := io.Pipe()
 
+	// Goroutine 1: Recibe los fragmentos de audio del servidor y los escribe en el pipe.
 	go recibirFragmentos(stream, writer)
-	go decodificarYReproducir(reader)
 
-	fmt.Println("Reproducción iniciada. Presiona Enter para volver al menú anterior cuando la canción termine.")
+	// Goroutine 2: Lee del pipe, decodifica el MP3 y lo envía a los altavoces.
+	go decodificarYReproducir(reader, done)
+
+	fmt.Println("Reproducción iniciada. La aplicación esperará a que la canción termine.")
 }
 
 func recibirFragmentos(stream ss.AudioService_StreamAudioClient, writer *io.PipeWriter) {
 	defer writer.Close()
 	fmt.Println("Recibiendo canción en vivo...")
 
+	// Añadimos un contador para los fragmentos recibidos.
+	fragmentoNum := 1
+
 	for {
 		fragmento, err := stream.Recv()
 		if err == io.EOF {
-			fmt.Println("Canción recibida completa.")
+			fmt.Println("\nCanción recibida completa.") // Agregamos un salto de línea para limpiar la salida.
 			return
 		}
 		if err != nil {
-			log.Fatalf("Error recibiendo fragmento: %v", err)
+			log.Printf("Error recibiendo fragmento: %v", err)
+			return
 		}
 
-		_, err = writer.Write(fragmento.GetData())
+		// Escribimos en el pipe.
+		bytesEscritos, err := writer.Write(fragmento.GetData())
 		if err != nil {
-			log.Printf("Error escribiendo en pipe: %v", err)
+			log.Printf("Error escribiendo en pipe (probablemente cerrado por el reproductor): %v", err)
 			return
 		}
+		// Imprimimos el log en la consola del cliente.
+		// Usamos \r (retorno de carro) para que el mensaje se sobrescriba en la misma línea,
+		// creando una bonita animación de carga sin inundar la consola.
+		fmt.Printf("\rRecibido fragmento #%d (%d bytes)...", fragmentoNum, bytesEscritos)
+		fragmentoNum++
+
 	}
 }
 
-func decodificarYReproducir(reader *io.PipeReader) {
-
+func decodificarYReproducir(reader *io.PipeReader, done chan bool) {
+	// Siempre notificamos al canal 'done' cuando esta goroutine termina.
 	defer func() {
-		if r := recover(); r != nil {
-			log.Fatalf("¡¡¡PÁNICO ATRAPADO EN LA GOROUTINE DE AUDIO!!! Error: %v", r)
-		}
+		// reader.Close() también es una buena práctica aquí.
+		reader.Close()
+		done <- true
 	}()
 
+	// mp3.Decode puede leer desde cualquier fuente que implemente io.Reader, como nuestro pipe.
+	// Bloqueará hasta que tenga suficientes datos para leer la cabecera del MP3 y determinar el formato.
 	streamer, format, err := mp3.Decode(reader)
 	if err != nil {
-		log.Fatalf("Error decodificando MP3: %v", err)
+		log.Printf("Error decodificando MP3: %v", err)
+		return
 	}
 	defer streamer.Close()
 
-	speaker.Init(format.SampleRate, format.SampleRate.N(time.Second/2))
-	speaker.Play(streamer)
+	// Inicializamos el dispositivo de audio (altavoces) UNA SOLA VEZ.
+	speakerInicializado.Do(func() {
+		// El buffer de 1/10 de segundo es un buen balance entre latencia y estabilidad.
+		speaker.Init(format.SampleRate, format.SampleRate.N(time.Second/10))
+	})
+
+	// Creamos un canal de control para saber cuándo la reproducción ha finalizado físicamente.
+	reproduccionTerminada := make(chan bool)
+
+	// beep.Seq reproduce los streamers en secuencia.
+	// beep.Callback es un "streamer" especial que ejecuta una función cuando es su turno.
+	// Al ponerlo al final, la función se ejecutará justo cuando 'streamer' termine.
+	speaker.Play(beep.Seq(streamer, beep.Callback(func() {
+		fmt.Println("\nLa reproducción de audio ha finalizado.")
+		reproduccionTerminada <- true
+	})))
+
+	// Esperamos hasta que el callback nos notifique que la canción terminó.
+	<-reproduccionTerminada
 }

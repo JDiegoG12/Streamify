@@ -16,7 +16,6 @@ func ObtenerCanciones(clienteCanciones sc.ServicioCancionesClient, idGenero int3
 	return Servicios.ListarCancionesPorGenero(clienteCanciones, idGenero)
 }
 
-// IniciarStreaming es una envoltura para la llamada al servicio de streaming.
-func IniciarStreaming(clienteStreaming ss.AudioServiceClient, titulo string) {
-	Servicios.ReproducirCancion(clienteStreaming, titulo)
+func IniciarStreaming(clienteStreaming ss.AudioServiceClient, titulo string, done chan bool) {
+	Servicios.ReproducirCancion(clienteStreaming, titulo, done)
 }

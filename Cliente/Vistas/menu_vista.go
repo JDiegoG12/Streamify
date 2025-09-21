@@ -92,30 +92,34 @@ func menuVerCanciones(clienteCanciones sc.ServicioCancionesClient, clienteStream
 	}
 }
 
-// menuDetalleCancion muestra los detalles de una canción y permite reproducirla.
 func menuDetalleCancion(clienteStreaming ss.AudioServiceClient, cancion *sc.Cancion) {
-	for {
-		fmt.Printf("\n===== Canción: %s - %s =====\n", cancion.Artista, cancion.Titulo)
-		fmt.Printf(" Título de la canción: %s\n", cancion.Titulo)
-		fmt.Printf(" Artista / Banda: %s\n", cancion.Artista)
-		fmt.Printf(" Año de lanzamiento: %d\n", cancion.AnioLanzamiento)
-		fmt.Printf(" Duración: %s\n", cancion.Duracion)
-		fmt.Println("\n1. Reproducir")
-		fmt.Println("2. Salir")
-		fmt.Print("Seleccione una opción: ")
+	// El bucle for ya no es necesario aquí si volvemos al menú anterior después de reproducir.
+	fmt.Printf("\n===== Canción: %s - %s =====\n", cancion.Artista, cancion.Titulo)
+	fmt.Printf(" Título de la canción: %s\n", cancion.Titulo)
+	fmt.Printf(" Artista / Banda: %s\n", cancion.Artista)
+	fmt.Printf(" Año de lanzamiento: %d\n", cancion.AnioLanzamiento)
+	fmt.Printf(" Duración: %s\n", cancion.Duracion)
+	fmt.Println("\n1. Reproducir")
+	fmt.Println("2. Atrás") // Cambiado de "Salir" a "Atrás" para mayor consistencia
+	fmt.Print("Seleccione una opción: ")
 
-		opcion, _ := reader.ReadString('\n')
-		opcion = strings.TrimSpace(opcion)
+	opcion, _ := reader.ReadString('\n')
+	opcion = strings.TrimSpace(opcion)
 
-		switch opcion {
-		case "1":
-			Fachada.IniciarStreaming(clienteStreaming, cancion.Titulo)
-			// Espera a que el usuario presione Enter para continuar
-			reader.ReadString('\n')
-		case "2":
-			return
-		default:
-			fmt.Println("Opción no válida.")
-		}
+	switch opcion {
+	case "1":
+		// Creamos un canal para saber cuándo termina la reproducción.
+		done := make(chan bool)
+		Fachada.IniciarStreaming(clienteStreaming, cancion.Titulo, done)
+
+		// Esperamos la señal del canal. Esto bloquea el flujo hasta que
+		// la goroutine de reproducción notifique que ha terminado.
+		<-done
+		fmt.Println("Reproducción terminada. Volviendo al menú de canciones...")
+
+	case "2":
+		return
+	default:
+		fmt.Println("Opción no válida.")
 	}
 }
