@@ -10,6 +10,8 @@ import (
 	"os"
 	"strconv"
 	"strings"
+
+	"github.com/faiface/beep/speaker"
 )
 
 var reader = bufio.NewReader(os.Stdin)
@@ -117,46 +119,47 @@ func menuDetalleCancion(clienteStreaming ss.AudioServiceClient, cancion *sc.Canc
 	}
 }
 
-// Nueva función para encapsular la lógica de reproducción con cancelación
+// Esta es la versión final y completa de la función de reproducción.
 func reproducirConOpcionDeSalir(clienteStreaming ss.AudioServiceClient, cancion *sc.Cancion) {
-	// 1. Crear un contexto que podamos cancelar
+	// 1. Crear un contexto que podamos cancelar.
 	ctx, cancel := context.WithCancel(context.Background())
-	// Nos aseguramos de llamar a cancel() al final para liberar recursos
 	defer cancel()
 
-	// Canal para saber cuándo termina la reproducción (ya sea por fin o por cancelación)
+	// Canal para saber cuándo las goroutines de fondo han terminado.
 	done := make(chan bool)
 
-	// 2. Iniciar el streaming en una goroutine para no bloquear la UI
+	// 2. Iniciar el streaming en segundo plano.
 	go Fachada.IniciarStreaming(clienteStreaming, cancion.Titulo, ctx, done)
 
-	// 3. Mostrar el menú de "Reproduciendo"
+	// 3. Mostrar el menú de reproducción.
 	fmt.Printf("\n===== Spotify =====\n")
 	fmt.Printf("Canción: %s - %s\n\n", cancion.Artista, cancion.Titulo)
 	fmt.Println("  Reproduciendo canción...")
 	fmt.Println("\n1. Salir")
 	fmt.Print("Seleccione una opción: ")
 
-	// 4. Esperar por la entrada del usuario o por el fin de la canción
+	// 4. Iniciar una goroutine para leer la entrada del usuario sin bloquear.
 	userInput := make(chan string)
 	go func() {
-		// Esta goroutine lee la entrada del usuario y la envía por un canal
 		input, _ := reader.ReadString('\n')
 		userInput <- strings.TrimSpace(input)
 	}()
 
+	// 5. Esperar a que la canción termine o a que el usuario quiera salir.
 	select {
 	case <-done:
-		// La canción terminó por sí sola. El mensaje de finalización se imprime desde el servicio.
+		// La canción terminó por sí sola.
 		return
 	case input := <-userInput:
-		// El usuario escribió algo.
 		if input == "1" {
-			// Si es "1", cancelamos el contexto.
-			// Esto provocará que la goroutine de streaming se detenga.
 			fmt.Println("\nDeteniendo reproducción...")
-			cancel() // <-- ¡Esta es la clave de la cancelación!
-			<-done   // Esperamos a que la goroutine de reproducción confirme que ha terminado.
+			// Secuencia de parada:
+			// 1. Vaciar el buffer de audio para un silencio inmediato.
+			speaker.Clear()
+			// 2. Cancelar el contexto para detener las goroutines.
+			cancel()
+			// 3. Esperar la confirmación de que las goroutines han terminado.
+			<-done
 		}
 	}
 }
