@@ -4,6 +4,9 @@ import (
 	"fmt"
 	"io"
 	"os"
+
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 // TransmitirCancion se encarga de la lógica de negocio: abrir un archivo y leerlo en fragmentos.
@@ -27,17 +30,28 @@ func TransmitirCancion(titulo string, enviarFragmento func(fragmento []byte) err
 	for {
 		bytesLeidos, err := file.Read(buffer)
 		if err == io.EOF {
+			// Se llegó al final del archivo, el bucle termina normalmente.
 			fmt.Println("Fachada: Fin del archivo. Streaming completado.")
 			break
 		}
 		if err != nil {
+			// Hubo un error al leer el archivo desde el disco.
 			fmt.Printf("Fachada: Error leyendo el archivo: %v\n", err)
 			return err
 		}
 
 		// Llamamos al callback proporcionado por el controlador para enviar el fragmento.
 		if err := enviarFragmento(buffer[:bytesLeidos]); err != nil {
-			fmt.Printf("Fachada: Error enviando fragmento a través del callback: %v\n", err)
+			// Verificamos si el error es específicamente una cancelación por parte del cliente.
+			if st, ok := status.FromError(err); ok && st.Code() == codes.Canceled {
+				// Si el cliente cancela, es una terminación normal de la operación, no un error del servidor.
+				fmt.Println("Fachada: El cliente canceló la conexión. Deteniendo el envío.")
+				// Retornamos nil porque la operación finalizó como se esperaba.
+				return nil
+			}
+
+			// Si el error es de otro tipo (ej: la red se cayó), sí lo consideramos un fallo.
+			fmt.Printf("Fachada: Error inesperado al enviar fragmento: %v\n", err)
 			return err
 		}
 
@@ -45,5 +59,6 @@ func TransmitirCancion(titulo string, enviarFragmento func(fragmento []byte) err
 		fragmentoNum++
 	}
 
+	// Si el bucle termina con éxito, retornamos nil.
 	return nil
 }
