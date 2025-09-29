@@ -19,58 +19,48 @@ import (
 // Llamarlo múltiples veces puede causar problemas con la librería de audio.
 var speakerInicializado sync.Once
 
-func ReproducirCancion(cliente ss.AudioServiceClient, tituloCancion string, done chan bool) {
-	stream, err := cliente.StreamAudio(context.Background(), &ss.PeticionDTO{Titulo: tituloCancion})
+// Añadimos el parámetro de contexto
+func ReproducirCancion(cliente ss.AudioServiceClient, tituloCancion string, ctx context.Context, done chan bool) {
+	// Usamos el CONTEXTO que nos pasan. Si se cancela, la llamada gRPC se interrumpirá.
+	stream, err := cliente.StreamAudio(ctx, &ss.PeticionDTO{Titulo: tituloCancion})
 	if err != nil {
-		log.Printf("Error al invocar el streaming: %v", err)
-		done <- true // Notificamos que hemos terminado (con error).
+		// Si el error es por cancelación, no es un fallo fatal, es esperado.
+		if ctx.Err() == context.Canceled {
+			fmt.Println("\nReproducción cancelada por el usuario.")
+		} else {
+			log.Printf("Error al invocar el streaming: %v", err)
+		}
+		done <- true
 		return
 	}
 
-	// io.Pipe crea un par de Reader/Writer conectados en memoria.
-	// Lo que se escribe en el Writer, puede ser leído desde el Reader.
-	// Es perfecto para conectar dos goroutines.
 	reader, writer := io.Pipe()
 
-	// Goroutine 1: Recibe los fragmentos de audio del servidor y los escribe en el pipe.
 	go recibirFragmentos(stream, writer)
-
-	// Goroutine 2: Lee del pipe, decodifica el MP3 y lo envía a los altavoces.
 	go decodificarYReproducir(reader, done)
-
-	fmt.Println("Reproducción iniciada. La aplicación esperará a que la canción termine.")
 }
 
 func recibirFragmentos(stream ss.AudioService_StreamAudioClient, writer *io.PipeWriter) {
 	defer writer.Close()
-	fmt.Println("Recibiendo canción en vivo...")
-
-	// Añadimos un contador para los fragmentos recibidos.
-	fragmentoNum := 1
 
 	for {
 		fragmento, err := stream.Recv()
+		// Si el error es por cancelación del contexto, stream.Recv() fallará.
 		if err == io.EOF {
-			fmt.Println("\nCanción recibida completa.") // Agregamos un salto de línea para limpiar la salida.
 			return
 		}
 		if err != nil {
-			log.Printf("Error recibiendo fragmento: %v", err)
+			// No imprimimos el error si el pipe se cierra por una cancelación, es normal.
+			if err != io.ErrClosedPipe {
+				log.Printf("Error recibiendo fragmento: %v", err)
+			}
 			return
 		}
 
-		// Escribimos en el pipe.
-		bytesEscritos, err := writer.Write(fragmento.GetData())
-		if err != nil {
-			log.Printf("Error escribiendo en pipe (probablemente cerrado por el reproductor): %v", err)
+		if _, err := writer.Write(fragmento.GetData()); err != nil {
+			log.Printf("Error escribiendo en pipe: %v", err)
 			return
 		}
-		// Imprimimos el log en la consola del cliente.
-		// Usamos \r (retorno de carro) para que el mensaje se sobrescriba en la misma línea,
-		// creando una bonita animación de carga sin inundar la consola.
-		fmt.Printf("\rRecibido fragmento #%d (%d bytes)...", fragmentoNum, bytesEscritos)
-		fragmentoNum++
-
 	}
 }
 

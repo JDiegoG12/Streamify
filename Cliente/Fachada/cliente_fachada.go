@@ -4,6 +4,7 @@ import (
 	"Streamify/Cliente/Servicios"
 	sc "Streamify/ServidorCanciones/servicios_canciones"
 	ss "Streamify/ServidorStreaming/servicios_streaming"
+	"context"
 )
 
 // ObtenerGeneros es una simple envoltura para la llamada al servicio.
@@ -16,6 +17,8 @@ func ObtenerCanciones(clienteCanciones sc.ServicioCancionesClient, idGenero int3
 	return Servicios.ListarCancionesPorGenero(clienteCanciones, idGenero)
 }
 
-func IniciarStreaming(clienteStreaming ss.AudioServiceClient, titulo string, done chan bool) {
-	Servicios.ReproducirCancion(clienteStreaming, titulo, done)
+// Añadimos el parámetro de contexto
+func IniciarStreaming(clienteStreaming ss.AudioServiceClient, titulo string, ctx context.Context, done chan bool) {
+	// Y lo pasamos al servicio
+	Servicios.ReproducirCancion(clienteStreaming, titulo, ctx, done)
 }
