@@ -40,25 +40,29 @@ func ReproducirCancion(cliente ss.AudioServiceClient, tituloCancion string, ctx 
 	go decodificarYReproducir(reader, done)
 }
 
+// Esta es la versión final y limpia de la función.
 func recibirFragmentos(stream ss.AudioService_StreamAudioClient, writer *io.PipeWriter) {
+	// Es importante cerrar el 'writer' al final para que el 'reader' del otro lado
+	// sepa que ya no llegarán más datos (recibirá un io.EOF).
 	defer writer.Close()
 
+	// Bucle infinito para recibir fragmentos.
 	for {
 		fragmento, err := stream.Recv()
-		// Si el error es por cancelación del contexto, stream.Recv() fallará.
-		if err == io.EOF {
-			return
-		}
 		if err != nil {
-			// No imprimimos el error si el pipe se cierra por una cancelación, es normal.
-			if err != io.ErrClosedPipe {
-				log.Printf("Error recibiendo fragmento: %v", err)
-			}
+			// Si stream.Recv() devuelve CUALQUIER error (ya sea por cancelación,
+			// fin de archivo normal 'io.EOF', o un problema de red),
+			// significa que el trabajo de esta goroutine ha terminado.
+			// Simplemente salimos de la función de forma silenciosa.
 			return
 		}
 
+		// Escribimos el fragmento recibido en la tubería en memoria.
 		if _, err := writer.Write(fragmento.GetData()); err != nil {
-			log.Printf("Error escribiendo en pipe: %v", err)
+			// Si hay un error al escribir, significa que el reproductor (el 'reader')
+			// ha cerrado la tubería, probablemente porque la reproducción se detuvo
+			// o fue cancelada. También significa que nuestro trabajo ha terminado.
+			// Salimos de la función de forma silenciosa.
 			return
 		}
 	}
