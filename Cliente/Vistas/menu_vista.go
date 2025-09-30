@@ -127,10 +127,11 @@ func menuDetalleCancion(clienteCanciones sc.ServicioCancionesClient, clienteStre
 	}
 }
 
-// Esta es la versión final y completa de la función de reproducción.
+// / Esta es la versión final y completa de la función de reproducción.
 func reproducirConOpcionDeSalir(clienteStreaming ss.AudioServiceClient, cancion *sc.Cancion) {
 	// 1. Crear un contexto que podamos cancelar.
 	ctx, cancel := context.WithCancel(context.Background())
+	// Defer cancel() asegura que los recursos del contexto se liberen al salir de la función.
 	defer cancel()
 
 	// Canal para saber cuándo las goroutines de fondo han terminado.
@@ -150,24 +151,46 @@ func reproducirConOpcionDeSalir(clienteStreaming ss.AudioServiceClient, cancion 
 	userInput := make(chan string)
 	go func() {
 		input, _ := reader.ReadString('\n')
-		userInput <- strings.TrimSpace(input)
+		// Usamos un select para evitar bloquearnos si el canal ya no es necesario
+		select {
+		case userInput <- strings.TrimSpace(input):
+		// El envío fue exitoso.
+		default:
+			// El receptor ya no está esperando. La goroutine puede terminar.
+		}
 	}()
 
-	// 5. Esperar a que la canción termine o a que el usuario quiera salir.
+	// 5. Esperar a que la canción termine O a que el usuario quiera salir.
 	select {
 	case <-done:
-		// La canción terminó por sí sola.
+		// LA CANCIÓN TERMINÓ SOLA. Este es el caso problemático.
+		// La goroutine de userInput sigue bloqueada en reader.ReadString().
+		// Debemos decirle al usuario que presione Enter para desbloquearla y que pueda terminar limpiamente.
+		fmt.Println("\nPresione Enter para continuar...")
+
+		// Cancelamos el contexto para asegurarnos de que todo se detenga.
+		cancel()
+
+		// Esperamos a que el usuario presione Enter, lo que hará que la goroutine envíe su valor
+		// y finalmente termine.
+		<-userInput
+
+		// Ahora que la goroutine de entrada ha terminado, es seguro volver al menú anterior.
 		return
+
 	case input := <-userInput:
+		// EL USUARIO INTERVINO.
 		if input == "1" {
 			fmt.Println("\nDeteniendo reproducción...")
 			// Secuencia de parada:
 			// 1. Vaciar el buffer de audio para un silencio inmediato.
 			speaker.Clear()
-			// 2. Cancelar el contexto para detener las goroutines.
+			// 2. Cancelar el contexto para detener las goroutines de red y decodificación.
 			cancel()
 			// 3. Esperar la confirmación de que las goroutines han terminado.
 			<-done
 		}
+		// Si el usuario ingresa otra cosa, la canción simplemente sigue sonando y
+		// la función termina, volviendo al menú anterior.
 	}
 }
