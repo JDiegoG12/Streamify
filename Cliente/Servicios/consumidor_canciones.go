@@ -22,3 +22,14 @@ func ListarCancionesPorGenero(cliente sc.ServicioCancionesClient, idGenero int32
 	}
 	return res.GetCanciones()
 }
+
+func ConsultarCancion(cliente sc.ServicioCancionesClient, idCancion int32) *sc.Cancion {
+	req := &sc.ConsultarCancionRequest{IdCancion: idCancion}
+	res, err := cliente.ConsultarCancion(context.Background(), req)
+	if err != nil {
+		// En lugar de detener el programa con Fatalf, usamos Printf para que sea más robusto.
+		log.Printf("Error al llamar a ConsultarCancion: %v", err)
+		return nil
+	}
+	return res
+}

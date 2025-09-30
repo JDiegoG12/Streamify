@@ -89,16 +89,25 @@ func menuVerCanciones(clienteCanciones sc.ServicioCancionesClient, clienteStream
 		if opcion == len(canciones)+1 {
 			return
 		}
-
 		cancionSeleccionada := canciones[opcion-1]
-		menuDetalleCancion(clienteStreaming, cancionSeleccionada)
+		menuDetalleCancion(clienteCanciones, clienteStreaming, cancionSeleccionada.Id)
 	}
 }
 
-func menuDetalleCancion(clienteStreaming ss.AudioServiceClient, cancion *sc.Cancion) {
+func menuDetalleCancion(clienteCanciones sc.ServicioCancionesClient, clienteStreaming ss.AudioServiceClient, idCancion int32) {
+	// Realizamos la llamada remota para obtener los detalles frescos de la canción.
+	fmt.Println("\nConsultando detalles de la canción...")
+	cancion := Fachada.ObtenerDetalleCancion(clienteCanciones, idCancion)
+
+	if cancion == nil {
+		fmt.Println("No se pudieron obtener los detalles de la canción. Intente de nuevo.")
+		return
+	}
+
 	fmt.Printf("\n===== Canción: %s - %s =====\n", cancion.Artista, cancion.Titulo)
 	fmt.Printf(" Título de la canción: %s\n", cancion.Titulo)
 	fmt.Printf(" Artista / Banda: %s\n", cancion.Artista)
+	// El álbum no está en tu struct, si lo necesitas, debes agregarlo al .proto y al repositorio.
 	fmt.Printf(" Año de lanzamiento: %d\n", cancion.AnioLanzamiento)
 	fmt.Printf(" Duración: %s\n", cancion.Duracion)
 	fmt.Println("\n1. Reproducir")
@@ -110,7 +119,6 @@ func menuDetalleCancion(clienteStreaming ss.AudioServiceClient, cancion *sc.Canc
 
 	switch opcion {
 	case "1":
-		// Si el usuario elige reproducir, llamamos a nuestra nueva función de reproducción.
 		reproducirConOpcionDeSalir(clienteStreaming, cancion)
 	case "2":
 		return

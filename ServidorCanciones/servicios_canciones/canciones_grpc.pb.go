@@ -22,10 +22,9 @@ const _ = grpc.SupportPackageIsVersion7
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type ServicioCancionesClient interface {
-	// Método para listar todos los géneros.
 	ListarGeneros(ctx context.Context, in *GetGenerosRequest, opts ...grpc.CallOption) (*GetGenerosResponse, error)
-	// Método para listar las canciones de un género.
 	ListarCancionesPorGenero(ctx context.Context, in *GetCancionesPorGeneroRequest, opts ...grpc.CallOption) (*GetCancionesPorGeneroResponse, error)
+	ConsultarCancion(ctx context.Context, in *ConsultarCancionRequest, opts ...grpc.CallOption) (*Cancion, error)
 }
 
 type servicioCancionesClient struct {
@@ -54,14 +53,22 @@ func (c *servicioCancionesClient) ListarCancionesPorGenero(ctx context.Context, 
 	return out, nil
 }
 
+func (c *servicioCancionesClient) ConsultarCancion(ctx context.Context, in *ConsultarCancionRequest, opts ...grpc.CallOption) (*Cancion, error) {
+	out := new(Cancion)
+	err := c.cc.Invoke(ctx, "/servicios_canciones.ServicioCanciones/ConsultarCancion", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // ServicioCancionesServer is the server API for ServicioCanciones service.
 // All implementations must embed UnimplementedServicioCancionesServer
 // for forward compatibility
 type ServicioCancionesServer interface {
-	// Método para listar todos los géneros.
 	ListarGeneros(context.Context, *GetGenerosRequest) (*GetGenerosResponse, error)
-	// Método para listar las canciones de un género.
 	ListarCancionesPorGenero(context.Context, *GetCancionesPorGeneroRequest) (*GetCancionesPorGeneroResponse, error)
+	ConsultarCancion(context.Context, *ConsultarCancionRequest) (*Cancion, error)
 	mustEmbedUnimplementedServicioCancionesServer()
 }
 
@@ -74,6 +81,9 @@ func (UnimplementedServicioCancionesServer) ListarGeneros(context.Context, *GetG
 }
 func (UnimplementedServicioCancionesServer) ListarCancionesPorGenero(context.Context, *GetCancionesPorGeneroRequest) (*GetCancionesPorGeneroResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ListarCancionesPorGenero not implemented")
+}
+func (UnimplementedServicioCancionesServer) ConsultarCancion(context.Context, *ConsultarCancionRequest) (*Cancion, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ConsultarCancion not implemented")
 }
 func (UnimplementedServicioCancionesServer) mustEmbedUnimplementedServicioCancionesServer() {}
 
@@ -124,6 +134,24 @@ func _ServicioCanciones_ListarCancionesPorGenero_Handler(srv interface{}, ctx co
 	return interceptor(ctx, in, info, handler)
 }
 
+func _ServicioCanciones_ConsultarCancion_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ConsultarCancionRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ServicioCancionesServer).ConsultarCancion(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/servicios_canciones.ServicioCanciones/ConsultarCancion",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ServicioCancionesServer).ConsultarCancion(ctx, req.(*ConsultarCancionRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // ServicioCanciones_ServiceDesc is the grpc.ServiceDesc for ServicioCanciones service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -138,6 +166,10 @@ var ServicioCanciones_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "ListarCancionesPorGenero",
 			Handler:    _ServicioCanciones_ListarCancionesPorGenero_Handler,
+		},
+		{
+			MethodName: "ConsultarCancion",
+			Handler:    _ServicioCanciones_ConsultarCancion_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

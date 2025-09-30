@@ -9,3 +9,7 @@ import (
 func ObtenerCancionesPorIdGenero(idGenero int32) []*sc.Cancion {
 	return Repositorios.ObtenerCancionesPorGenero(idGenero)
 }
+
+func ObtenerCancionPorId(idCancion int32) *sc.Cancion {
+	return Repositorios.ObtenerCancionPorId(idCancion)
+}

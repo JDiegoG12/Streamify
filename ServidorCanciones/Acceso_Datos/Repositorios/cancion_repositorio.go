@@ -31,3 +31,13 @@ func ObtenerCancionesPorGenero(idGenero int32) []*sc.Cancion {
 	}
 	return cancionesFiltradas
 }
+
+// Devuelve nil si no se encuentra.
+func ObtenerCancionPorId(idCancion int32) *sc.Cancion {
+	for _, cancion := range canciones {
+		if cancion.Id == idCancion {
+			return cancion
+		}
+	}
+	return nil
+}

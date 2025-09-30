@@ -22,3 +22,7 @@ func IniciarStreaming(clienteStreaming ss.AudioServiceClient, titulo string, ctx
 	// Y lo pasamos al servicio
 	Servicios.ReproducirCancion(clienteStreaming, titulo, ctx, done)
 }
+
+func ObtenerDetalleCancion(clienteCanciones sc.ServicioCancionesClient, idCancion int32) *sc.Cancion {
+	return Servicios.ConsultarCancion(clienteCanciones, idCancion)
+}

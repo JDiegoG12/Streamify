@@ -35,8 +35,13 @@ message GetCancionesPorGeneroResponse {
     repeated Cancion canciones = 1;
 }
 
+message ConsultarCancionRequest {
+    int32 id_cancion = 1;
+}
+
 // --- Servicio gRPC ---
 service ServicioCanciones {
     rpc ListarGeneros(GetGenerosRequest) returns (GetGenerosResponse);
     rpc ListarCancionesPorGenero(GetCancionesPorGeneroRequest) returns (GetCancionesPorGeneroResponse);
+    rpc ConsultarCancion(ConsultarCancionRequest) returns (Cancion);
 }
